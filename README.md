@@ -241,6 +241,26 @@ Below table displays the list of configurable paramters for the benchmark.
 | storage.storage_root		| The storage root directory  					| ./|
 | storage.storage_type		| The storage type  						|local_fs|
 
+## Time to completion
+Here we provide the expected time to completion for all the workload 
+* UNet3D
+```
+Total time = (num_files_train*num_samples_per_file)/batch_size*computation_time/num_gpus*epochs
+```
+* Bert 
+```
+Total time = computation_time*total_training_steps
+```
+| Parameters                    | UNet3D                                               |Bert|
+| ------------------------------ | ------------------------------------------------------------ |-------|
+| num_files_train       | 168        | 500|
+|  num_samples_per_file | 1      |  313532|
+|batch_size          | 4			| 48 |
+| computation_time	|     1.3604    |  0.968|
+| epoch/step	| 10  |500|
+| Time (Lower bound)	| 	   571.37    | 4840.00|
+
+For UNet3D the total time will scale with ```dataset_scale_factor/num_gpu```. For Bert, it remains the same. 
 
 ## Releases
 
