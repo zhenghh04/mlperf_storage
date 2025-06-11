@@ -139,8 +139,7 @@ Note: The output directories for the write and read phases must be different to 
   mlpstorage checkpointing run --model llama3-405b \
     --hosts ip1 ip2 .... \
     --num-processes 512 \
-    --num-checkpoints-read 0 \
-    --num-checkpoints-write 1 \
+    --num-checkpoints-read -1 \
     --checkpoint-folder ./checkpoint_data1 \
     --results-dir ./checkpoint_results_write \
     --client-host-memory-in-gb 64
@@ -152,8 +151,7 @@ Note: The output directories for the write and read phases must be different to 
   mlpstorage checkpointing run --model llama3-405b \
     --hosts ip1 ip2 .... \
     --num-processes 512 \
-    --num-checkpoints-read 1 \
-    --num-checkpoints-write 0 \
+    --num-checkpoints-write -1 \
     --checkpoint-folder ./checkpoint_data1 \
     --results-dir ./checkpoint_results_read \
     --client-host-memory-in-gb 64
