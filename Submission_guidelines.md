@@ -122,8 +122,8 @@ There are two operational modes:
 
 For each submission, one must first perform the checkpoint write, then clear the cache, and finally perform the checkpoint read. The required command-line flags are:
 
-* WRITE: ``--num-checkpoints-read=0``
-* READ: ``--num-checkpoints-write=0``
+* WRITE: ``--num-checkpoints-read=-1``
+* READ: ``--num-checkpoints-write=-1``
 
 
 
@@ -164,8 +164,7 @@ Note: The output directories for the write and read phases must be different to 
   mlpstorage checkpointing run --model llama3-405b \
     --hosts ip1 \
     --num-processes 8 \
-    --num-checkpoints-read 0 \
-    --num-checkpoints-write 1 \
+    --num-checkpoints-read -1 \
     --checkpoint-folder ./checkpoint_data1 \
     --results-dir ./checkpoint_results_write \
     --client-host-memory-in-gb 64
@@ -175,8 +174,7 @@ Note: The output directories for the write and read phases must be different to 
   mlpstorage checkpointing run --model llama3-405b \
     --hosts ip1 \
     --num-processes 8 \
-    --num-checkpoints-read 1 \
-    --num-checkpoints-write 0 \
+    --num-checkpoints-write -1 \
     --checkpoint-folder ./checkpoint_data1 \
     --results-dir ./checkpoint_results_read \
     --client-host-memory-in-gb 64
