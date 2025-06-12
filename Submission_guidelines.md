@@ -126,7 +126,7 @@ For each submission, the following execution sequence must be followed:
 * Checkpoint Write 
 * Cache Clearing
 * Checkpoint Read
-* 
+
 To enforce the correct behavior, use the following command-line flags:
 ```
 For writing: --num-checkpoints-read=-1
