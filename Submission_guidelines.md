@@ -118,7 +118,7 @@ There are two operational modes:
 
 * ``subset``: Intended for node local storage systems. In this mode, checkpointing is simulated on a single host by writing/reading only a fraction (``num_gpus/TP/PP/DP``) of the checkpoint data, where ``num_gpus`` is the number of gpus on the host.
 
-In the close submission, if **the number of processes is 8** than (TPxPPxDP) set in Table 2, it will be automatically identified as subset mode for 70B, 405B, and 1T workloads. 
+For the ``subset`` mode, a valid submission will have to set total number of processes to be 8. 
 
 **Checkpoint write and (read) recovery**
 
@@ -129,8 +129,8 @@ For each submission, the following execution sequence must be followed:
 
 To enforce the correct behavior, use the following command-line flags:
 ```
-For writing: --num-checkpoints-read=-1
-For reading: --num-checkpoints-write=-1
+For writing: --num-checkpoints-read=0
+For reading: --num-checkpoints-write=0
 ```
 Important: The purpose of clearing the cache is to prevent checkpoint data from being read from DRAM. However, if the total size of checkpoint writes exceeds your system’s DRAM capacity, the cache effect is inherently minimized; one might not have to manually clear the cache.
 
@@ -146,7 +146,8 @@ Note: The output directories for the write and read phases must be different to 
   mlpstorage checkpointing run --model llama3-405b \
     --hosts ip1 ip2 .... \
     --num-processes 512 \
-    --num-checkpoints-read -1 \
+    --num-checkpoints-read 0 \
+    --num-checkpoints-write 1 \
     --checkpoint-folder ./checkpoint_data1 \
     --results-dir ./checkpoint_results_write \
     --client-host-memory-in-gb 64
@@ -158,7 +159,8 @@ Note: The output directories for the write and read phases must be different to 
   mlpstorage checkpointing run --model llama3-405b \
     --hosts ip1 ip2 .... \
     --num-processes 512 \
-    --num-checkpoints-write -1 \
+    --num-checkpoints-read 1 \
+    --num-checkpoints-write 0 \
     --checkpoint-folder ./checkpoint_data1 \
     --results-dir ./checkpoint_results_read \
     --client-host-memory-in-gb 64
@@ -169,7 +171,8 @@ Note: The output directories for the write and read phases must be different to 
   mlpstorage checkpointing run --model llama3-405b \
     --hosts ip1 \
     --num-processes 8 \
-    --num-checkpoints-read -1 \
+    --num-checkpoints-read 0 \
+    --num-checkpoints-write 1 \
     --checkpoint-folder ./checkpoint_data1 \
     --results-dir ./checkpoint_results_write \
     --client-host-memory-in-gb 64
@@ -179,7 +182,8 @@ Note: The output directories for the write and read phases must be different to 
   mlpstorage checkpointing run --model llama3-405b \
     --hosts ip1 \
     --num-processes 8 \
-    --num-checkpoints-write -1 \
+    --num-checkpoints-read 1 \
+    --num-checkpoints-write 0 \
     --checkpoint-folder ./checkpoint_data1 \
     --results-dir ./checkpoint_results_read \
     --client-host-memory-in-gb 64
@@ -201,15 +205,14 @@ For OPEN submissions, the total number of GPUs may be increased in multiples of 
 
 **Table 3: Configuration parameters and their mutability in CLOSED and OPEN divisions**
 
-| Parameter                          | Meaning                                      | Default value                        | Changeable in CLOSE | Changeable in OPEN |
+| Parameter                          | Meaning                                      | Value                        | Changeable in CLOSE | Changeable in OPEN |
 |-----------------------------------|----------------------------------------------|--------------------------------------|----------------------|---------------------|
 | --ppn                             | Number of GPUs per node                      | N/A                                  | YES (minimal 4)      | YES (minimal 4)     |
 | --num-processes                    | Total number of GPUs                         | Node local: 8<br>Global: the value in Table 1 | NO                   | YES                 |
 | --checkpoint-folder      | The folder to save the checkpoint data       | checkpoint/{workload}                | YES                  | YES                 |
-| --num-checkpoints-write | Number of write checkpoints                  | 10 or -1**                             | NO              | NO                  |
-| --num-checkpoints-read     | Number of write checkpoints                  | 10 or -1**                              | NO                   | NO                  |
+| --num-checkpoints-write | Number of write checkpoints                  | 1 or 0**                             | NO              | NO                  |
+| --num-checkpoints-read     | Number of write checkpoints                  | 1 or 0**                              | NO                   | NO                  |
 
-** has to be set  ``--num-checkpoints-read=-1`` explicitly for performing only checkpoint write, and ``--num-checkpoints-write=-1`` for performing only checkpoint read.
 ### 2.3 Vector Database
 
 ## 3 Definitions 
