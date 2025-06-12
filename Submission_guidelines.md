@@ -116,16 +116,23 @@ There are two operational modes:
 
 * ``default``: Used for global storage systems. In this mode, the benchmark runs at scale to write/read the entire checkpoint dataset. The total number of GPUs must match the number listed in Table 2 (TP×PP×DP).
 
-* ``subset``: Intended for node local storage systems.In this mode, checkpointing is simulated on a single host by writing/reading only a fraction (``num_gpus/TP/PP/DP``) of the checkpoint data, where ``num_gpus`` is the number of gpus on the host. 
+* ``subset``: Intended for node local storage systems. In this mode, checkpointing is simulated on a single host by writing/reading only a fraction (``num_gpus/TP/PP/DP``) of the checkpoint data, where ``num_gpus`` is the number of gpus on the host.
+
+In the close submission, if **the number of processes is 8** than (TPxPPxDP) set in Table 2, it will be automatically identified as subset mode for 70B, 405B, and 1T workloads. 
 
 **Checkpoint write and (read) recovery**
 
-For each submission, one must first perform the checkpoint write, then clear the cache, and finally perform the checkpoint read. The required command-line flags are:
-
-* WRITE: ``--num-checkpoints-read=-1``
-* READ: ``--num-checkpoints-write=-1``
-
-
+For each submission, the following execution sequence must be followed:
+* Checkpoint Write 
+* Cache Clearing
+* Checkpoint Read
+* 
+To enforce the correct behavior, use the following command-line flags:
+```
+For writing: --num-checkpoints-read=-1
+For reading: --num-checkpoints-write=-1
+```
+Important: The purpose of clearing the cache is to prevent checkpoint data from being read from DRAM. However, if the total size of checkpoint writes exceeds your system’s DRAM capacity, the cache effect is inherently minimized; one might not have to manually clear the cache.
 
 **fsync**
 We enforce ``fsync`` to be applied during checkpoint writes to ensure data is flushed to persistent storage. ``fsync`` is enabled by default in all workload configuration files.
