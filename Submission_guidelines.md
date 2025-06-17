@@ -266,12 +266,14 @@ For OPEN submissions, the total number of processes may be increased in multiple
 | --num-checkpoints-write | Number of write checkpoints                  | 10 or 0**                                     | NO              | NO                  |
 | --num-checkpoints-read     | Number of write checkpoints                  | 10 or 0**                                     | NO                   | NO                  |
 
-** By default, ``--num-checkpoints-read`` and ``--num-checkpoints-write`` are set to 10. To perform writes only, set ``--num-checkpoints-read=0`` which explicitly disables reads. To perform reads only, set ``--num-checkpoints-write=0`` which explicitly disables writes.
+** By default, --num-checkpoints-read and --num-checkpoints-write are set to be 10. To perform write only, one has to turn off read by explicitly setting ``--num-checkpoints-read=0``; to perform read only, one has to turn off write by explicitly set  ``--num-checkpoints-write=0``
 
 For an OPEN or CLOSED submission, the process must follow:
 1. Write 10 checkpoints
 2. Clearing Caches or Remapping Volumes if required
 3. Read 10 checkpoint
+
+DLIO and mlpstorage both support options to run 10 checkpoints with a single call or run 10 checkpoints as separate invokations of the tools. So long as the process is followed, checkpoints can be executed as a 10 checkpoint batch or individually. 
 
 ### 2.3 Vector Database
 
