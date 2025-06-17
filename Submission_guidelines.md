@@ -98,17 +98,18 @@ For CLOSE submissions, participants are not permitted to change the total number
 
 **Table 2 LLM models**
 
-|           Model            | 8B    | 70B   | 405B   | 1T     |
-|----------------------------|-------|-------|--------|--------|
-| Hidden dimension           | 4096  | 8192  | 16384  | 25872  |
-| FFN size                   | 14336 | 28672 | 53248  | 98304  |
-| num_attention_heads        | 32    | 128   | 128    | 192    |
-| num_kv_heads               | 8     | 8     | 8      | 32     |
-| Num layers                 | 32    | 80    | 126    | 128    |
-| Parallelism (TPxPPxDP)     | 1×1×8 | 8×1x8 | 8×32×2 | 8×64×2 |
-| Total Processes            | 8     | 64    | 512    | 1024   |
-| ZeRO                       | 3     | 3     | 1      | 1      |
-| Checkpoint size            | 105 GB| 912 GB| 5.29 TB| 18 TB  |
+| Model                  | 8B     | 70B    | 405B    | 1T     |
+|------------------------|--------|--------|---------|--------|
+| Hidden dimension       | 4096   | 8192   | 16384   | 25872  |
+| FFN size               | 14336  | 28672  | 53248   | 98304  |
+| num_attention_heads    | 32     | 128    | 128     | 192    |
+| num_kv_heads           | 8      | 8      | 8       | 32     |
+| Num layers             | 32     | 80     | 126     | 128    |
+| Parallelism (TPxPPxDP) | 1×1×8  | 8×1x8  | 8×32×2  | 8×64×2 |
+| Total Processes        | 8      | 64     | 512     | 1024   |
+| ZeRO                   | 3      | 3      | 1       | 1      |
+| Checkpoint size        | 105 GB | 912 GB | 5.29 TB | 18 TB  |
+| Subset: 8-Process Size | 105 GB | 114 GB | 94 GB   | 161 GB |
 
 
 #### 2.2.2 Benchmark Execution
@@ -129,10 +130,30 @@ For a submission, the sequence is the following:
 2. Clear filesystem caches if necessary
 3. Read 10x checkpoints
 
-The default options will run the read and write checkpoints in a single mlpstorage call. If caches need to be cleared use the following parameters for the WRITE and READ tests. 
+The default options will run the read and write checkpoints in a single mlpstorage call. For example, the following command will execute a sequence of writing 10 checkpoints and reading those same 10 checkpoints.
+```bash
+mlpstorage checkpointing run --client-host-memory-in-gb 512 --model llama3-8b --num-processes 8 --checkpoint-folder /mnt/checkpoint_test
+```
+
+If caches need to be cleared use the following parameters for the WRITE and READ tests. 
 
 * WRITE: ``--num-checkpoints-read=0``
 * READ: ``--num-checkpoints-write=0``
+
+In the above example, the write tests would be executed first with this command which will do the writes but no reads.
+```bash
+mlpstorage checkpointing run --client-host-memory-in-gb 512 --model llama3-8b --num-processes 8 --checkpoint-folder /mnt/checkpoint_test --num-checkpoints-read=0
+```
+
+After the read tests complete, clear the caches on your hosts. A standard linux system would use a command like this:
+```bash
+echo 3 > /proc/sys/vm/drop_caches
+```
+
+Finally, with the same example the read tests would be executed with the following command which indicates no writes during this phase:
+```bash
+mlpstorage checkpointing run --client-host-memory-in-gb 512 --model llama3-8b --num-processes 8 --checkpoint-folder /mnt/checkpoint_test --num-checkpoints-write=0
+```
 
 Caches need to be cleared by the user outside of the mlpstorage tool.
 
@@ -204,8 +225,8 @@ We enforce ``fsync`` to be applied during checkpoint writes to ensure data is fl
 #### 2.2.3 Metrics and Results Reporting
 We report the checkpoint time per write / read and I/O throughput from each rank. For each run: 
 
-	* The metric for duration is the maximum time across all GPUs.
-	* The metric for throughput is the minimum across all GPUs.
+	* The metric for duration is the maximum time across all processes.
+	* The metric for throughput is the minimum across all processes.
 
 A checkpoint workload submission must include 10 checkpoints written and 10 checkpoints read as well as the logs for any optional processes as outlined in section 2.2.5 (clearing caches, storage remapping, etc)
 
@@ -231,28 +252,26 @@ System:
 ```
 
 #### 2.2.5 OPEN vs CLOSE submissions
-For CLOSED submissions, the total number of GPUs must be fixed according to Table 2.
+For CLOSED submissions, the total number of processes must be fixed according to Table 2.
 
-For OPEN submissions, the total number of GPUs may be increased in multiples of (TP×PP) to showcase the scalability of the storage solution.
+For OPEN submissions, the total number of processes may be increased in multiples of (TP×PP) to showcase the scalability of the storage solution.
 
 **Table 3: Configuration parameters and their mutability in CLOSED and OPEN divisions**
 
 | Parameter                          | Meaning                                      | Default value                                 | Changeable in CLOSE | Changeable in OPEN |
 |-----------------------------------|----------------------------------------------|-----------------------------------------------|----------------------|---------------------|
-| --ppn                             | Number of GPUs per node                      | N/A                                           | YES (minimal 4)      | YES (minimal 4)     |
-| --num-processes                    | Total number of GPUs                         | Node local: 8<br>Global: the value in Table 1 | NO                   | YES                 |
+| --ppn                             | Number of processes per node                      | N/A                                           | YES (minimal 4)      | YES (minimal 4)     |
+| --num-processes                    | Total number of processes                         | Node local: 8<br>Global: the value in Table 1 | NO                   | YES                 |
 | --checkpoint-folder      | The folder to save the checkpoint data       | checkpoint/{workload}                         | YES                  | YES                 |
 | --num-checkpoints-write | Number of write checkpoints                  | 10 or 0**                                     | NO              | NO                  |
 | --num-checkpoints-read     | Number of write checkpoints                  | 10 or 0**                                     | NO                   | NO                  |
 
-** has to be set  ``--num-checkpoints-read=0`` explicitly for performing only checkpoint write, and ``--num-checkpoints-write=0`` for performing only checkpoint read.
+** By default, ``--num-checkpoints-read`` and ``--num-checkpoints-write`` are set to 10. To perform writes only, set ``--num-checkpoints-read=0`` which explicitly disables reads. To perform reads only, set ``--num-checkpoints-write=0`` which explicitly disables writes.
 
 For an OPEN or CLOSED submission, the process must follow:
 1. Write 10 checkpoints
 2. Clearing Caches or Remapping Volumes if required
 3. Read 10 checkpoint
-
-DLIO and mlpstorage both support options to run 10 checkpoints with a single call or run 10 checkpoints as separate invokations of the tools. So long as the process is followed, checkpoints can be executed as a 10 checkpoint batch or individually. 
 
 ### 2.3 Vector Database
 
@@ -417,26 +436,39 @@ In order to accomplish that, most of the optimizations and customizations to the
 
 For CLOSED submissions of this benchmark, the MLPerf Storage codebase takes the place of the AI/ML algorithms and framework, and therefore cannot be changed. 
 
-A small number of parameters can be configured in CLOSED submissions; listed in the table below.
+A small number of parameters can be configured in CLOSED submissions; listed in the tables below.
 
-| Parameter | Description | Default |
-| ---- | ---- | ---- |
-| *Dataset parameters* | | |
-| dataset.num_files_train | Number of files for the training set | -- |
-| dataset.num_subfolders_train | Number of subfolders that the training set is stored | 0 |
-| dataset.data_folder | The path where dataset is stored | -- |
-| *Reader parameters* | | |
-| reader.read_threads | Number of threads to load the data | -- |
-| reader.computation_threads | Number of threads to preprocess the data(only for bert) | -- |
-| reader.transfer_size | An int64 scalar representing the number of bytes in the read buffer. (only supported for Tensorflow) | |
-| reader.prefetch_size | An int64 scalar representing the amount of prefetching done, with values of 0, 1, or 2. | |
-| *Checkpoint parameters* | | |
-| checkpoint.checkpoint_folder | The folder to save the checkpoints | -- |
-| *Storage parameters* | | |
-| storage.storage_root | The storage root directory | ./ |
-| storage.storage_type | The storage type | local_fs |
+**Table: Training Workload Tunable Parameters for CLOSED**
 
-Table 2: Alterable parameters for CLOSED submissions
+| Parameter                    | Description                                                                                                                         | Default  |
+|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|----------|
+| *Dataset parameters*         |                                                                                                                                     |          |
+| dataset.num_files_train      | Number of files for the training set                                                                                                | --       |
+| dataset.num_subfolders_train | Number of subfolders that the training set is stored                                                                                | 0        |
+| dataset.data_folder          | The path where dataset is stored                                                                                                    | --       |
+|                              |                                                                                                                                     |          |
+| *Reader parameters*          |                                                                                                                                     |          |
+| reader.read_threads          | Number of threads to load the data                                                                                                  | --       |
+| reader.computation_threads   | Number of threads to preprocess the data (only for resnet)                                                                          | --       |
+| reader.transfer_size         | An int64 scalar representing the number of bytes in the read buffer. (only supported for Tensorflow models -- Resnet and Cosmoflow) |          |
+| reader.prefetch_size         | An int64 scalar representing the amount of prefetching done, with values of 0, 1, or 2.                                             |          |
+| reader.odirect               | Enable ODIRECT mode for Unet3D Training                                                                                             | False    |
+|                              |                                                                                                                                     |          |
+| *Checkpoint parameters*      |                                                                                                                                     |          |
+| checkpoint.checkpoint_folder | The folder to save the checkpoints                                                                                                  | --       |
+|                              |                                                                                                                                     |          |
+| *Storage parameters*         |                                                                                                                                     |          |
+| storage.storage_root         | The storage root directory                                                                                                          | ./       |
+| storage.storage_type         | The storage type                                                                                                                    | local_fs |
+
+**Table: Checkpoint Workload Tunable Parameters for CLOSED**
+
+| Parameter                        | Description                                                 | Default               |
+|----------------------------------|-------------------------------------------------------------|-----------------------|
+| checkpoint.checkpoint_folder     | The storage directory for writing and reading checkpoints   | ./checkpoints/<model> |
+| checkpoint.num_checkpoints_write | The number of checkpoint writes to do in a single dlio call | 10                    |
+| checkpoint.num_checkpoints_read  | The number of checkpoint reads to do in a single dlio call  | 10                    |
+
 
 CLOSED division benchmarks must be referred to using the benchmark name plus the term CLOSED, e.g. “The system was able to support *N ACME X100* accelerators running a CLOSED division 3D U-Net workload at only 8% less than optimal performance.”
 
@@ -452,17 +484,25 @@ While changes to DLIO are allowed, changing the workload itself is not.  Ie: how
 
 In addition to what can be changed in the CLOSED submission, the following parameters can be changed in the benchmark.sh script:
 
-| Parameter |  Description | Default |
-| --- | --- | --- |
-| framework | The machine learning framework. | 3D U-Net: PyTorch; ResNet-50: Tensorflow; Cosmoflow: Tensorflow |
-| *Dataset parameters* | | |
-| dataset.format | Format of the dataset. | 3D U-Net: .npz; ResNet-50: .tfrecord; Cosmoflow: .tfrecord |
-| dataset.num_samples_per_file | Changing this parameter is supported only with Tensorflow, using tfrecord datasets. Currently, the benchmark code only supports num_samples_per_file = 1 for Pytorch data loader. To support other values, the data loader needs to be adjusted. | 3D U-Net: 1; ResNet-50: 1251; Cosmoflow: 1 |
-| *Reader parameters* | | |
-| reader.data_loader | Supported options: Tensorflow or PyTorch. OPEN submissions can have custom data loaders. If a new data loader is added, or an existing data loader is changed, the DLIO code will need to be modified. | 3D U-Net: PyTorch (Torch Data Loader); ResNet-50: Tensorflow (Tensorflow Data Loader); Cosmoflow: Tensorflow |
+| Parameter                    | Description                                | Default                                                             |
+|------------------------------|--------------------------------------------|---------------------------------------------------------------------|
+| framework                    | The machine learning framework.            | 3D U-Net: PyTorch<br>ResNet-50: Tensorflow<br>Cosmoflow: Tensorflow |
+|                              |                                            |                                                                     |
+| *Dataset parameters*         |                                            |                                                                     |
+| dataset.format               | Format of the dataset.                     | 3D U-Net: .npz<br>ResNet-50: .tfrecord<br>Cosmoflow: .tfrecord      |
+| dataset.num_samples_per_file |                                            | 3D U-Net: 1<br>ResNet-50: 1251<br>Cosmoflow: 1                      |
+|                              |                                            |                                                                     |
+| *Reader parameters*          |                                            |                                                                     |
+| reader.data_loader           | Supported options: Tensorflow or PyTorch.  | 3D U-Net: PyTorch<br>ResNet-50: Tensorflow<br>Cosmoflow: Tensorflow |
 
-**OPEN division benchmark submissions must be run through the benchmark.sh script. The .yaml files cannot be changed (the workload cannot be changed).  The parameters can be changed only via the command line in order to more-explicitly document what was changed.**
 
+#### 10.2.1 OPEN: num_samples_per_file
+Changing this parameter is supported only with Tensorflow, using tfrecord datasets. Currently, the benchmark code only supports num_samples_per_file = 1 for Pytorch data loader. To support other values, the data loader needs to be adjusted.
+
+#### 10.2.2 OPEN: data_loader
+OPEN submissions can have custom data loaders. If a new data loader is added, or an existing data loader is changed, the DLIO code will need to be modified.
+
+#### 10.2.3 Execution of OPEN submissions
 OPEN division benchmarks must be referred to using the benchmark name plus the term OPEN, e.g. “The system was able to support N ACME X100 accelerators running an OPEN division 3D U-Net workload at only 8% less than optimal performance.”
 
 ## 11. Submission
@@ -510,108 +550,150 @@ root_folder (or any name you prefer)
 ├── Closed
 │ 	└──<submitter_org>
 │		├── code
-│		├── generation_logs
 │		├── results
-│		│	├──system-name-1
-│		│	│	├── unet3d-a100
-│		│	│	│	└── ..
-│		│	│	├── unet3d-h100
-│		│	│	│	└── ..
-|		│	|	├── resnet-a100
-│		│	│	│	└── ..
-|		│	|	├── resnet-h100
-│		│	│	│	└── ..
-|		│	|	├── cosmoflow-a100	
-│		│	│	|	└── ..
-|		│	|	└── cosmoflow-h100	
-│		│	│	|	└── ..
-|		│	|	└── llama-8b	
-│		│	│	|	└── ..
-|		│	|	└── llama-70b	
-│		│	│	|	└── ..
-|		│	|	└── llama-405b	
-│		│	│	|	└── ..
-|		│	|	└── llama-1t	
-│		│	│		└── ..
-│		│	└──system-name-2
-│		│	 	├── unet3d-a100
-│		│	 	│	└── ..
-│		│	 	├── unet3d-h100
-│		│	 	│	└── ..
-|		│	 	├── resnet-a100
-│		│	 	│	└── ..
-|		│	 	├── resnet-h100
-│		│	 	│	└── ..
-|		│	 	├── cosmoflow-a100	
-│		│	 	|	└── ..
-|		│	 	├── cosmoflow-h100	
-│		│	 	|	└── ..
-│		│	 	├── llama-8b	
-│		│	 	|	└── ..
-|		│	 	├──llama-70b	
-│		│	 	|	└── ..
-|		│		├── llama-405b	
-│		│	 	|	└── ..
-│		│	 	└── llama-1t	
-│		│	 		└── ..
+│		│	└──system-name-1
+│		│	 	├── training
+│		│	 	│	├── unet3d
+│		│		│	│	├── datagen
+│		│		│	│	│	└── YYYYMMDD_HHmmss
+│		│		│	│	│		└── dlio_log_files
+│		│		│	│	└── run
+│		│		│	│		├── YYYYMMDD_HHmmss
+│		│		│	│		│	└── dlio_log_files 
+│		│		│	│		... (5x Runs per Emulated Accelerator Type)
+│		│		│	│		└── YYYYMMDD_HHmmss
+│		│		│	│			└── dlio_log_files
+│		│	 	│	├── resnet50
+│		│		│	│	├── datagen
+│		│		│	│	│	└── YYYYMMDD_HHmmss
+│		│		│	│	│		└── dlio_log_files
+│		│		│	│	└── run
+│		│		│	│		├── YYYYMMDD_HHmmss
+│		│		│	│		│	└── dlio_log_files 
+│		│		│	│		... (5x Runs per Emulated Accelerator Type)
+│		│		│	│		└── YYYYMMDD_HHmmss
+│		│		│	│			└── dlio_log_files
+│		│	 	│	└── cosmoflow
+│		│		│	 	├── datagen
+│		│		│	 	│	└── YYYYMMDD_HHmmss
+│		│		│	 	│		└── dlio_log_files
+│		│		│	 	└── run
+│		│		│	 		├── YYYYMMDD_HHmmss
+│		│		│	 		│	└── dlio_log_files 
+│		│		│	 		... (5x Runs per Emulated Accelerator Type)
+│		│		│	 		└── YYYYMMDD_HHmmss
+│		│		│	 			└── dlio_log_files
+│		│	 	└── checkpointing
+│		│	 		├── llama3-8b
+│		│			│	├── YYYYMMDD_HHmmss
+│		│			│	│	└── dlio_log_files 
+│		│			 	... (10x Runs for Read and Write. May be combined in a single run)
+│		│			│	└── YYYYMMDD_HHmmss
+│		│			│		└── dlio_log_files
+│		│	 		├── llama3-70b
+│		│			│	├── YYYYMMDD_HHmmss
+│		│			│	│	└── dlio_log_files 
+│		│			 	... (10x Runs for Read and Write. May be combined in a single run)
+│		│			│	└── YYYYMMDD_HHmmss
+│		│			│		└── dlio_log_files
+│		│	 		├── llama3-405b
+│		│			│	├── YYYYMMDD_HHmmss
+│		│			│	│	└── dlio_log_files 
+│		│			 	... (10x Runs for Read and Write. May be combined in a single run)
+│		│			│	└── YYYYMMDD_HHmmss
+│		│			│		└── dlio_log_files
+│		│	 		└── llama3-1t
+│		│			 	├── YYYYMMDD_HHmmss
+│		│			 	│	└── dlio_log_files 
+│		│			 	... (10x Runs for Read and Write. May be combined in a single run)
+│		│				└── YYYYMMDD_HHmmss
+│		│			 		└── dlio_log_files
 │		└── systems
-│			system-name-1.json
-│			system-name-1.pdf
-│			system-name-2.json
-│			system-name-2.pdf
+│			├──system-name-1.yaml
+│			├──system-name-1.pdf
+│			├──system-name-2.yaml
+│			└──system-name-2.pdf
 │
 └── Open
  	└──<submitter_org>
 		├── code
- 		├── generation_logs
- 		├── results
- 		│	├──system-name-1
- 		│	│	├── unet3d-a100
- 		│	│	│	└── ..
- 		│	│	├── unet3d-h100
- 		│	│	│	└── ..
- 		│	|	├── resnet-a100
- 		│	│	│	└── ..
- 		│	|	├── resnet-h100
- 		│	│	│	└── ..
- 		│	|	├── cosmoflow-a100	
- 		│	│	|	└── ..
- 		│	|	└── cosmoflow-h100	
-│		│	│	|	└── ..
-|		│	|	└── llama-8b	
-│		│	│	|	└── ..
-|		│	|	└── llama-70b	
-│		│	│	|	└── ..
-|		│	|	└── llama-405b	
-│		│	│	|	└── ..
-|		│	|	└── llama-1t	
-│		│	│		└── .. 
- 		│	└──system-name-2
- 		│	 	├── unet3d-a100
- 		│	 	│	└── ..
- 		│	 	├── unet3d-h100
- 		│	 	│	└── ..
- 		│	 	├── resnet-a100
- 		│	 	│	└── ..
- 		│	 	├── resnet-h100
- 		│	 	│	└── ..
- 		│	 	├── cosmoflow-a100	
- 		│	 	|	└── ..
- 		│	 	└── cosmoflow-h100	
-│		│	 	|	└── ..
-│		│	 	├── llama-8b	
-│		│	 	|	└── ..
-|		│	 	├──llama-70b	
-│		│	 	|	└── ..
-|		│		├── llama-405b	
-│		│	 	|	└── ..
-│		│	 	└── llama-1t	
-│		│	 		└── ..
+		├── results
+		│	└──system-name-1
+		│	 	├── training
+		│	 	│	├── unet3d
+		│		│	│	├── datagen
+		│		│	│	│	└── YYYYMMDD_HHmmss
+		│		│	│	│		└── dlio_log_files
+		│		│	│	└── run
+		│		│	│		├── YYYYMMDD_HHmmss
+		│		│	│		│	└── dlio_log_files 
+		│		│	│		... (5x Runs per Emulated Accelerator Type)
+		│		│	│		└── YYYYMMDD_HHmmss
+		│		│	│			└── dlio_log_files
+		│	 	│	├── resnet50
+		│		│	│	├── datagen
+		│		│	│	│	└── YYYYMMDD_HHmmss
+		│		│	│	│		└── dlio_log_files
+		│		│	│	└── run
+		│		│	│		├── YYYYMMDD_HHmmss
+		│		│	│		│	└── dlio_log_files 
+		│		│	│		... (5x Runs per Emulated Accelerator Type)
+		│		│	│		└── YYYYMMDD_HHmmss
+		│		│	│			└── dlio_log_files
+		│	 	│	└── cosmoflow
+		│		│	 	├── datagen
+		│		│	 	│	└── YYYYMMDD_HHmmss
+		│		│	 	│		└── dlio_log_files
+		│		│	 	└── run
+		│		│	 		├── YYYYMMDD_HHmmss
+		│		│	 		│	└── dlio_log_files 
+		│		│	 		... (5x Runs per Emulated Accelerator Type)
+		│		│	 		└── YYYYMMDD_HHmmss
+		│		│	 			└── dlio_log_files
+		│	 	└── checkpointing
+		│	 		├── llama3-8b
+		│			│	├── YYYYMMDD_HHmmss
+		│			│	│	└── dlio_log_files 
+		│			│	... (10x Runs for Read and Write. May be combined in a single run)
+		│			│	└── YYYYMMDD_HHmmss
+		│			│		└── dlio_log_files
+		│	 		├── llama3-70b
+		│			│	├── YYYYMMDD_HHmmss
+		│			│	│	└── dlio_log_files 
+		│			│	... (10x Runs for Read and Write. May be combined in a single run)
+		│			│	└── YYYYMMDD_HHmmss
+		│			│		└── dlio_log_files
+		│	 		├── llama3-405b
+		│			│	├── YYYYMMDD_HHmmss
+		│			│	│	└── dlio_log_files 
+		│			│	... (10x Runs for Read and Write. May be combined in a single run)
+		│			│	└── YYYYMMDD_HHmmss
+		│			│		└── dlio_log_files
+		│	 		└── llama3-1t
+		│			 	├── YYYYMMDD_HHmmss
+		│			 	│	└── dlio_log_files 
+		│			│	... (10x Runs for Read and Write. May be combined in a single run)
+		│				└── YYYYMMDD_HHmmss
+		│			 		└── dlio_log_files
 		└── systems
-			system-name-1.json
-			system-name-1.pdf
-			system-name-2.json
-			system-name-2.pdf
+			├──system-name-1.yaml
+			├──system-name-1.pdf
+			├──system-name-2.yaml
+			└──system-name-2.pdf
+```
+
+#### 11.3.1 DLIO Log Files Required
+The Training and Checkpointing workloads both use DLIO to execute the test. The following files are required for every run in a submission:
+```
+YYYYMMDD_HHmmss
+├── [training|checkpointing]_[datagen|run].stdout.log   # Captured manually if running DLIO directly. mlpstorage captures this automatically
+├── [training|checkpointing]_[datagen|run].stderr.log   # Captured manually if running DLIO directly. mlpstorage captures this automatically
+├── dlio.log
+└── dlio_config | .hydra_config                         # Running DLIO manually creates a ".hydra_config" directory. mlpstorage names this "dlio_config"
+   ├── config.yaml
+   ├── hydra.yaml
+   └── overrides.yaml
+
 ```
 
 ### 11.4 System Description
