@@ -124,6 +124,7 @@ There are two operational modes:
 **Checkpoint write and (read) recovery**
 
 For each submission, one must first perform the checkpoint write, then clear the cache if required, and finally perform the checkpoint read. The required command-line flags are:
+*Note: Clearing caches is done to ensure that no data for the read phase comes from the filesystem cache*
 
 For a submission, the sequence is the following:
 1. Write 10x checkpoints
@@ -145,10 +146,11 @@ In the above example, the write tests would be executed first with this command 
 mlpstorage checkpointing run --client-host-memory-in-gb 512 --model llama3-8b --num-processes 8 --checkpoint-folder /mnt/checkpoint_test --num-checkpoints-read=0
 ```
 
-After the read tests complete, clear the caches on your hosts. A standard linux system would use a command like this:
+After the write tests complete, clear the caches on your hosts. A standard linux system would use a command like this:
 ```bash
 echo 3 > /proc/sys/vm/drop_caches
 ```
+The end result of "clearing caches" is that 100% data for the read phase should come from the storage system under test and not from the client's filesystem cache. 
 
 Finally, with the same example the read tests would be executed with the following command which indicates no writes during this phase:
 ```bash
