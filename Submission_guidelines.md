@@ -141,6 +141,7 @@ If caches need to be cleared use the following parameters for the WRITE and READ
 * WRITE: ``--num-checkpoints-read=0``
 * READ: ``--num-checkpoints-write=0``
 
+
 In the above example, the write tests would be executed first with this command which will do the writes but no reads.
 ```bash
 mlpstorage checkpointing run --client-host-memory-in-gb 512 --model llama3-8b --num-processes 8 --checkpoint-folder /mnt/checkpoint_test --num-checkpoints-read=0
@@ -175,6 +176,7 @@ In the first case, after 2x checkpoints data that has been written is being flus
 In the second case, after 10x checkpoints, 898GB of data will have been written per client with each client having 1024GB of memory. Without clearing caches this data would be read from the filesystem cache
 
 **fsync**
+
 We enforce ``fsync`` to be applied during checkpoint writes to ensure data is flushed to persistent storage. ``fsync`` is enabled by default in all workload configuration files.
 
 **Example Execution Commands**
@@ -241,6 +243,8 @@ For storage systems where all hosts can read and write all data simultaneously, 
 For storage systems where 1 host has write access to a volume but all hosts have read access, the above process also satisfies the requirements so long as reads can be fulfilled immediately following a write.
 
 For storage systems where 1 host has write access to a volume and a "remapping" process is required for other hosts to read the same data, the time to remap must be measured and included in the submission. 
+
+When a checkpoint is taken/written, it must be written to stable storage, but that checkpoint does not need to be readable by other other hosts yet.  If it is not readable by other hosts immediately after the checkpoint write is complete, if it requires some additional processing or reconfiguration before the checkpoint is readable by other hosts, the time duration between the checkpoint being completed and the earliest time that that checkpoint could be read by a different ``host node`` must be reported in the SystemDescription.yaml file.  That duration between write completion and availability for reading will be added to the time to read/recover from the benchmark.
 
 **Any processes between the write and read phases of checkpointing that are required before data can be read by a different host than wrote the data must be measured and included in the submission. The time for these processes will be added to the recovery time and throughput calculation for submitted scores** 
 
@@ -381,7 +385,16 @@ The storage system must not be informed of the random seed or the source of rand
 Public results should be rounded normally, to two decimal places.
 
 ### 6.5. Stable storage must be used
+
+For all workloads stable storage must be used, but there are some differences in the specifics.
+
+#### 6.5.1. Training Workloads
+
 The MLPerf Storage benchmark will create the dataset on the storage system, in the desired ``dataset format``, before the start of the benchmark run.  The data must reside on stable storage before the actual benchmark testing can run.
+
+#### 6.5.2. Checkpoint Workloads
+
+See section "2.2.3 Metrics and Results Reporting" for more details.
 
 ### 6.6. Caching
 Caching of training data on ``host nodes`` running MLPerf Storage is controlled via a warm up run, dataset size to memory ratios, and changing random seeds between runs.
