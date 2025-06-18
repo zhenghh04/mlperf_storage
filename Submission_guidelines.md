@@ -66,6 +66,8 @@ The MLPerf name and logo are trademarks of the MLCommons® Association ("MLCommo
 
 This version of the benchmark does not include offline or online data pre-processing. We are aware that data pre-processing is an important part of the ML data pipeline and we will include it in a future version of the benchmark.
 
+Each benchmark setup must be executed a number of times (5 for training and 10 for checkpointing). All logs from every run must be submitted as part of a submission package. The final metrics are the average across the runs. Runs must be consecutive with no failed runs between the submitted runs. Runs can not be cherry-picked from a range of runs excepting that all five runs are consecutive within the large sequence of runs.
+
 ### 2.1 Training
 
 MLPerf Storage emulates accelerators for the training workloads with the tool DLIO developed by Argonne National Labs. DLIO uses the standard AI frameworks (PyTorch, Tensorflow, Numpy, etc) to load data from storage to memory at the same intensity as a given accelerator.
@@ -265,12 +267,12 @@ For OPEN submissions, the total number of processes may be increased in multiple
 **Table 3: Configuration parameters and their mutability in CLOSED and OPEN divisions**
 
 | Parameter                          | Meaning                                      | Default value                                 | Changeable in CLOSE | Changeable in OPEN |
-|-----------------------------------|----------------------------------------------|-----------------------------------------------|----------------------|---------------------|
-| --ppn                             | Number of processes per node                      | N/A                                           | YES (minimal 4)      | YES (minimal 4)     |
-| --num-processes                    | Total number of processes                         | Node local: 8<br>Global: the value in Table 1 | NO                   | YES                 |
-| --checkpoint-folder      | The folder to save the checkpoint data       | checkpoint/{workload}                         | YES                  | YES                 |
-| --num-checkpoints-write | Number of write checkpoints                  | 10 or 0**                                     | NO              | NO                  |
-| --num-checkpoints-read     | Number of write checkpoints                  | 10 or 0**                                     | NO                   | NO                  |
+|------------------------------------|----------------------------------------------|-----------------------------------------------|---------------------|--------------------|
+| --ppn                              | Number of processes per node                 | N/A                                           | YES (minimal 4)     | YES (minimal 4)    |
+| --num-processes                    | Total number of processes                    | Node local: 8<br>Global: the value in Table 1 | NO                  | YES                |
+| --checkpoint-folder                | The folder to save the checkpoint data       | checkpoint/{workload}                         | YES                 | YES                |
+| --num-checkpoints-write            | Number of write checkpoints                  | 10 or 0**                                     | NO                  | NO                 |
+| --num-checkpoints-read             | Number of write checkpoints                  | 10 or 0**                                     | NO                  | NO                 |
 
 ** By default, --num-checkpoints-read and --num-checkpoints-write are set to be 10. To perform write only, one has to turn off read by explicitly setting ``--num-checkpoints-read=0``; to perform read only, one has to turn off write by explicitly set  ``--num-checkpoints-write=0``
 
@@ -404,6 +406,11 @@ Caching of training data on ``host nodes`` running MLPerf Storage is controlled 
 
 ### 6.7. Replicability is mandatory
 Results that cannot be replicated are not valid results. Replicated results should be within 5% within 5 tries.
+
+### 6.8 Consecutive Runs Requirement
+Each of the benchmarks described in this document have a requirement for multiple runs. This is to ensure consistency of operation of the system under test as well as ensure statistical significance of the measurements.
+
+Unless otherwise noted, the multiple runs for a workload need to be run consecutively. To ensure this requirement is met, the time between runs (from the stop time of one run and the start time to the next run) needs to be less than the time to execute a single run. This is to discourage cherry-picking of results which is expressly forbidden and against the spirit of the rules.
 
 ## 7. Dataset Generation
 
@@ -731,7 +738,20 @@ Each submission must contain a ``<system-name>.yaml`` file and a ``<system-name>
 
 Note that, during the review period, submitters may be asked to include additional details in the yaml and pdf to enable reproducibility by a third party.
 
-#### 11.4.1 System Description PDF
+#### 11.4.1 System Description YAML
+The system description yaml is a hybrid human-readable and machine-readable description of the total system under test. It contains fields for the System overall, the Nodes that make up the solution (clients and storage), as well as Power information of the nodes.
+
+An example can be found [HERE](https://github.com/mlcommons/storage/blob/main/system_configuration.yaml)
+
+The fields in the example document are required unless otherwise called out. Of particular note are the following:
+
+ - **System.type**
+   - Can choose from local-storage, hyper-converged, shared-[file|block|object], cloud-deployment
+ - **System.required_rack_units**
+   - This is the total rackspace required by the solution as deployed including any required backend networking (but not including the client network)
+
+
+#### 11.4.2 System Description PDF
 
 The goal of the pdf is to complement the JSON file, providing additional detail on the system to enable full reproduction by a third party. We encourage submitters to add details that are more easily captured by diagrams and text description, rather than a JSON.
 
@@ -750,6 +770,8 @@ The following information is required to be included in the system description P
 - Version of the benchmark
 - Solution type of the submission
 - Submission division (OPEN or CLOSED)
+- Power Requirements
+- System Topology
 
 **Mandatory Power requirements**
 
@@ -787,6 +809,9 @@ Two examples of a power requirements tables are shown below:
 | **Totals**           |                   | **12 watts**          | **12 watts**   |
 
 System component and power supply unit names in the above tables are examples. Consistent names should be used in bill-of-material documentation, system diagrams and descriptive text.
+
+**System Topology**
+The system topology needs to show logical connections between the nodes and network devices listed in the system-description.yaml. The simplest form is made up of squares and lines with a square for each node and a line for each connection between the nodes. Every node listed in the system-description.yaml needs to have a representative visual in the topology diagram. For large deployments (larger than 4 nodes), use an appropriate scaling notation. For example, in a solution of 16 identical client nodes, show squares for the first and last nodes (with node names and numbers in the nodes) separated by "...". 
 
 **Mandatory Rack Units Requirements**
 
