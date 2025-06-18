@@ -1,13 +1,9 @@
 System:
   name: FastAmazingAcmeStorage 9000
   description: <text>
-  # Type can be any of:
-  #  - local-storage
-  #  - hyper-converged
-  #  - shared-[file|block|object]
-  #  - cloud-deployment
-  type: local_storage
-  access_protocol: block / file / proprietary / nfs / etc
+  storage_location: [ remote | local | hyper-converged ]
+  client_software: [ in-box | proprietary ]
+  storage_interface: [ block | file | object ]
   required_rack_units:
   shared_capabilities:
     multi_host_support: True            # False is used for local storage
