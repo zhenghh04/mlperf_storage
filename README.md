@@ -15,7 +15,7 @@ MLPerf® Storage is a benchmark suite to characterize the performance of storage
 - [Submission Rules](#submission-rules)
 - 
 ## Overview
-For an overview of how this benchmark suite is used by submitters to compare the performance of storage systems supporting an AI cluster, see the MLPerf™ Storage Benchmark submission rules here: [doc](https://github.com/mlcommons/storage/blob/main/Submission_guidelines.md). 
+For an overview of how this benchmark suite is used by submitters to compare the performance of storage systems supporting an AI cluster, see the MLPerf® Storage Benchmark submission rules here: [doc](https://github.com/mlcommons/storage/blob/main/Submission_guidelines.md). 
 
 ## Prerequisite
 
