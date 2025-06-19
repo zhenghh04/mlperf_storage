@@ -754,7 +754,6 @@ class CheckpointSubmissionRulesChecker(MultiRunRulesChecker):
         return issues
 
 
-
 class TrainingSubmissionRulesChecker(MultiRunRulesChecker):
     supported_models = MODELS
 
@@ -782,7 +781,7 @@ class BenchmarkVerifier:
                 # This is here if we get a Benchmark instance that needs to run the verifier
                 # on itself before execution. We map it to a BenchmarkRun instance
                 # We check against the string so we don't need to import the Benchmark classes here
-                self.benchmark_runs = [BenchmarkRun(benchmark_instance=benchmark_runs, logger=logger)]
+                self.benchmark_runs = [BenchmarkRun(benchmark_instance=benchmark_runs[0], logger=logger)]
 
             benchmark_run = self.benchmark_runs[0]
             if benchmark_run.benchmark_type == BENCHMARK_TYPES.training:
