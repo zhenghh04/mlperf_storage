@@ -49,6 +49,8 @@ MLPerf™ Storage is a benchmark suite to characterize the performance of storag
 
 This benchmark attempts to balance two goals. First, we aim for **comparability** between benchmark submissions to enable decision making by the AI/ML Community. Second, we aim for **flexibility** to enable experimentation and to show off unique storage system features that will benefit the AI/ML Community. To that end we have defined two classes of submissions: CLOSED and OPEN. 
 
+Published results for the 3D-Unet, ResNet-50, and Cosmoflow Training workloads are comparable across v1.0 and v2.0 of the MLPerf Storage benchmark.  A [full listing of comparability is available](https://github.com/mlcommons/policies/blob/master/MLPerf_Compatibility_Table.adoc).
+
 The MLPerf name and logo are trademarks of the MLCommons® Association ("MLCommons"). In order to refer to a result using the MLPerf name, the result must conform to the letter and spirit of the rules specified in this document. MLCommons reserves the right to solely determine if a use of its name or logos is acceptable.
 
 ### 1.1 Timeline
@@ -70,7 +72,7 @@ Each benchmark setup must be executed a number of times (5 for training and 10 f
 
 ### 2.1 Training
 
-MLPerf Storage emulates accelerators for the training workloads with the tool DLIO developed by Argonne National Labs. DLIO uses the standard AI frameworks (PyTorch, Tensorflow, Numpy, etc) to load data from storage to memory at the same intensity as a given accelerator.
+MLPerf Storage emulates (or "simulates", the terms are used interchangably in this document) accelerators for the training workloads with the tool DLIO developed by Argonne National Labs. DLIO uses the standard AI frameworks (PyTorch, Tensorflow, Numpy, etc) to load data from storage to memory at the same intensity as a given accelerator.
 
 **This emulation means that submitters do not need to use hardware accelerators (e.g., GPUs, TPUs, and other ASICs) when running MLPerf Storage - Training.**
 
@@ -94,9 +96,9 @@ Table 1: Benchmark description
 
 ### 2.2 Checkpointing
 #### 2.2.1 models
-Benchmark results may be submitted for the following four model configurations. The associated model architectures and parallelism settings are listed below. The number of MPI processes must be set to 8, 64, 512, and 1024 for the respective models for CLOSE submission. 
+Benchmark results may be submitted for the following four model configurations. The associated model architectures and parallelism settings are listed below. The number of MPI processes must be set to 8, 64, 512, and 1024 for the respective models for CLOSED submission. 
 
-For CLOSE submissions, participants are not permitted to change the total number of GPUs. However, they may adjust the number of GPUs per host, as long as each host uses more than 4 GPUs. This allows the use of nodes with higher GPU density and fewer total nodes. Note: the aggregate GPU memory across all nodes must be sufficient to accommodate the model’s checkpoint size.
+For CLOSED submissions, participants are not permitted to change the total number of simulated accelerators. However, they may adjust the number of simulated accelerators per host, as long as each host uses more than 4 simulated accelerators. This allows the use of nodes with higher simulated accelerator density and fewer total nodes. Note: the aggregate simulated accelerator memory across all nodes must be sufficient to accommodate the model’s checkpoint size.
 
 **Table 2 LLM models**
 
@@ -119,9 +121,9 @@ For CLOSE submissions, participants are not permitted to change the total number
 
 There are two operational modes:
 
-* ``default``: Used for shared storage systems. In this mode, the benchmark runs on multiple hosts to write/read the entire checkpoint dataset. The total number of processes (emulated GPUs) must match the number listed in Table 2 (TP×PP×DP = Total Processes).
+* ``default``: Used for shared storage systems. In this mode, the benchmark runs on multiple hosts to write/read the entire checkpoint dataset. The total number of processes (emulated accelerators) must match the number listed in Table 2 (TP×PP×DP = Total Processes).
 
-* ``subset``: Intended for node local storage systems. In this mode, checkpointing is simulated on a single host by writing/reading only a fraction (``num_gpus/TP/PP/DP``) of the checkpoint data, where ``num_gpus`` is the number of gpus on the host. The only allowed value for number of processes in a subset submission is 8 (the 8B model does not support subset mode as it is already set to 8 processes).
+* ``subset``: Intended for node local storage systems. In this mode, checkpointing is simulated on a single host by writing/reading only a fraction (``num_gpus/TP/PP/DP``) of the checkpoint data, where ``num_gpus`` is the number of simulated accelerators on the host. The only allowed value for number of processes in a subset submission is 8 (the 8B model does not support subset mode as it is already set to 8 processes).
 
 **Checkpoint write and (read) recovery**
 
@@ -206,7 +208,7 @@ We enforce ``fsync`` to be applied during checkpoint writes to ensure data is fl
     --results-dir ./mlpstorage_results \
     --client-host-memory-in-gb 64
   ```
-* ``subset`` mode (on a single host with **8 GPUs**)
+* ``subset`` mode (on a single host with **8 simulated accelerators**)
   ```bash
   # Perform checkpoint writes (data parallelism must match Table 2)
   mlpstorage checkpointing run --model llama3-405b \
@@ -259,20 +261,20 @@ System:
     simultaneous_read__support: True    # Are simultaneous reads by multiple hosts supported in the submitted configuration
 ```
 
-#### 2.2.5 OPEN vs CLOSE submissions
+#### 2.2.5 OPEN vs CLOSED submissions
 For CLOSED submissions, the total number of processes must be fixed according to Table 2.
 
 For OPEN submissions, the total number of processes may be increased in multiples of (TP×PP) to showcase the scalability of the storage solution.
 
 **Table 3: Configuration parameters and their mutability in CLOSED and OPEN divisions**
 
-| Parameter                          | Meaning                                      | Default value                                 | Changeable in CLOSE | Changeable in OPEN |
-|------------------------------------|----------------------------------------------|-----------------------------------------------|---------------------|--------------------|
-| --ppn                              | Number of processes per node                 | N/A                                           | YES (minimal 4)     | YES (minimal 4)    |
-| --num-processes                    | Total number of processes                    | Node local: 8<br>Global: the value in Table 1 | NO                  | YES                |
-| --checkpoint-folder                | The folder to save the checkpoint data       | checkpoint/{workload}                         | YES                 | YES                |
-| --num-checkpoints-write            | Number of write checkpoints                  | 10 or 0**                                     | NO                  | NO                 |
-| --num-checkpoints-read             | Number of write checkpoints                  | 10 or 0**                                     | NO                  | NO                 |
+| Parameter                          | Meaning                                      | Default value                                 | Changeable in CLOSED | Changeable in OPEN |
+|------------------------------------|----------------------------------------------|-----------------------------------------------|----------------------|--------------------|
+| --ppn                              | Number of processes per node                 | N/A                                           | YES (minimal 4)      | YES (minimal 4)    |
+| --num-processes                    | Total number of processes                    | Node local: 8<br>Global: the value in Table 1 | NO                   | YES                |
+| --checkpoint-folder                | The folder to save the checkpoint data       | checkpoint/{workload}                         | YES                  | YES                |
+| --num-checkpoints-write            | Number of write checkpoints                  | 10 or 0**                                     | NO                   | NO                 |
+| --num-checkpoints-read             | Number of write checkpoints                  | 10 or 0**                                     | NO                   | NO                 |
 
 ** By default, --num-checkpoints-read and --num-checkpoints-write are set to be 10. To perform write only, one has to turn off read by explicitly setting ``--num-checkpoints-read=0``; to perform read only, one has to turn off write by explicitly set  ``--num-checkpoints-write=0``
 
@@ -349,6 +351,8 @@ total_compute_time = (records_per_file * total_files) / simulated_accelerators /
 ### 4.2. Checkpoint Workloads
 
 The benchmark performance metrics for Checkpoint workloads (write/take, and read/recover) are **bandwidth while writing, and bandwidth while reading**, plus an additional data point which is the amount of time required, if any, between the completion of writing a checkpoint and the first point at which that checkpoint can be read from a different ``host node``.  That duration between write completeion and availability for reading will be added to the time to read/recover from the benchmark.
+
+**Submitters do not need to use hardware accelerators (e.g., GPUs, TPUs, and other ASICs) when running MLPerf Storage - Checkpointing.**
 
 ## 5. Benchmark Code
 
