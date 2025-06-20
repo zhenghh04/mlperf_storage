@@ -327,6 +327,25 @@ class CommandExecutor:
 
 
 def generate_mpi_prefix_cmd(mpi_cmd, hosts, num_processes, oversubscribe, allow_run_as_root, params, logger):
+    # If user explicitly provides parallel-per-node via --ppn or --npernode, skip host specification
+    if params and any(p.startswith("--ppn") or p.startswith("--npernode") or p.startswith("-ppn") or p.startswith("-npernode") for p in params):
+        # Base MPI command without host list
+        if mpi_cmd == MPIRUN:
+            prefix = f"{MPI_RUN_BIN} -n {num_processes}"
+        elif mpi_cmd == MPIEXEC:
+            prefix = f"{MPI_EXEC_BIN} -n {num_processes}"
+        else:
+            raise ValueError(f"Unsupported MPI command: {mpi_cmd}")
+        # Attach any extra MPI params (including the --ppn)
+        for param in params:
+            prefix += f" {param}"
+        # Oversubscribe and root options still apply after params
+        if oversubscribe:
+            prefix += " --oversubscribe"
+        if allow_run_as_root:
+            prefix += " --allow-run-as-root"
+        return prefix
+
     # Check if we got slot definitions with the hosts:
     slots_configured = False
     for host in hosts:
